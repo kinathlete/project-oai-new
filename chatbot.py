@@ -11,6 +11,38 @@ st.markdown("<h1 style='text-align: center;'>OAI - A Stealth Mode Project</h1>",
 
 openai.api_key = st.secrets["OPENAI_SECRET_KEY"]
 
+delimiter = "####"
+# classification system message
+classification_system_message = f"""
+Du erhältst die Antworten eines potenziellen Kunden \
+aus einem Verkaufsgespräch.
+Die Antworten werden mit den folgenden Zeichen \
+abgetrennt sein: {delimiter}
+Der Verkäufer versucht ein Service Produkt zur \
+Verbesserung des Marketings zu verkaufen.
+Du analysiers die Antworten des Kunden in den \
+folgenden Schritten:
+
+1. Schritt (sentiment):
+Bitte klassifiziere die Antwort des Kunden, \
+ob er dem Angebot gegenüber positiv (positive) oder \
+negativ (negative) gestimmt ist. Das Ergebnis \
+muss "positive" oder "negative" heissen.
+
+2. Schritt (reason):
+Falls der Kunde positiv gestimmt ist, \
+ist der Wert für diesen Schritt "none".
+Falls der Kunde negativ gestimmt ist, \
+klassifiziere seinen Einwand sinnvoll \
+in eine der folgenden Kategorien:
+- hat kein Interesse (interest)
+- hat keine finanziellen Mittel (money)
+- hat keine Zeit zu sprechen (time)
+
+Gib dein Analyse-Ergebnis im JSON Format \
+aus.
+"""
+
 # Initial system message
 initial_system_message = f"""
 Dein Name ist Kasper.
@@ -86,6 +118,21 @@ if clear_button:
     st.session_state['total_tokens'] = []
     counter_placeholder.write(f"Total cost of this conversation: ${st.session_state['total_cost']:.5f}")
 
+# classify user prompt
+def classify_prompt(prompt):
+    messages =  [  
+    {'role':'system', 
+    'content': classification_system_message},    
+    {'role':'user', 
+    'content': f"{delimiter}{prompt}{delimiter}"},  
+    ]
+    response = openai.ChatCompletion.create(
+    model=model,
+    messages=messages,
+    )
+    print(response.choices[0].message["content"])
+    return response.choices[0].message["content"]
+
 # generate a response
 def generate_response(prompt):
     st.session_state['messages'].append({"role": "user", "content": prompt})
@@ -136,6 +183,7 @@ with container:
 
     if submit_button and user_input:
         output, total_tokens, prompt_tokens, completion_tokens = generate_response(user_input)
+        classification = classify_prompt(user_input)
         st.session_state['past'].append(user_input)
         st.session_state['generated'].append(output)
         st.session_state['model_name'].append(model_name)
